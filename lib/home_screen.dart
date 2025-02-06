@@ -1,58 +1,149 @@
-import 'package:alquran_api/surah_detail.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'api_service.dart';
 import 'surah_model.dart';
+import 'surah_detail.dart';
 
-class HomeScreen extends StatefulWidget {
+class PostPage extends StatefulWidget {
+  final HttpService httpService = HttpService();
+
+  PostPage({super.key});
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  PostPageState createState() => PostPageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  final ApiService _apiService = ApiService();
-  late Future<List<Surah>> _surahList;
+class PostPageState extends State<PostPage> {
+  List<Surah> allSurah = [];
+  List<Surah> filteredSurah = [];
+  String searchQuery = "";
+  Future<List<Surah>>? _futureSurah;
 
   @override
   void initState() {
     super.initState();
-    _surahList = _apiService.getSurah();
+    _futureSurah = fetchSurah();
+  }
+
+  Future<List<Surah>> fetchSurah() async {
+    final surahList = await widget.httpService.getSurah();
+    setState(() {
+      allSurah = surahList;
+      filteredSurah = surahList;
+    });
+    return surahList;
+  }
+
+  void updateSearchQuery(String query) {
+    setState(() {
+      searchQuery = query;
+      filteredSurah = allSurah
+          .where((surah) =>
+              surah.nama.toLowerCase().contains(query.toLowerCase()) ||
+              surah.namaLatin.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Al-Quran"),
+        backgroundColor: const Color.fromARGB(255, 26, 239, 58),
+        title: Text(
+          'Al-Quran',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 30,
+            color: Colors.white,
+          ),
+        ),
         centerTitle: true,
       ),
-      body: FutureBuilder<List<Surah>>(
-        future: _surahList,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          } else if (snapshot.hasData) {
-            final surahList = snapshot.data!;
-            return ListView.builder(
-              itemCount: surahList.length,
-              itemBuilder: (context, index) {
-                final surah = surahList[index];
-                return ListTile(
-                  title: Text("${surah.nama} (${surah.namalatin})"),
-                  subtitle: Text("Jumlah Ayat: ${surah.jumlahayat}"),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => PostDetail(post: surah)
-                    )
-                  ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: TextField(
+              onChanged: updateSearchQuery,
+              decoration: const InputDecoration(
+                labelText: "Search Surah",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Surah>>(
+              future: _futureSurah,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      "Error: ${snapshot.error}",
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  );
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("Tidak ada data tersedia"));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(10.0),
+                  itemCount: filteredSurah.length,
+                  itemBuilder: (context, index) {
+                    final surah = filteredSurah[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 10.0),
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailPage(surahNumber: surah.nomor),
+                            ),
+                          );
+                        },
+                        leading: CircleAvatar(
+                          backgroundColor: const Color.fromARGB(255, 26, 239, 58),
+                          radius: 25,
+                          child: Text(
+                            "${surah.nomor}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          surah.nama,
+                          style: GoogleFonts.amiri(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${surah.namaLatin} - ${surah.arti} \n${surah.jumlahAyat} Ayat',
+                          style: GoogleFonts.roboto(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
-            );
-          } else {
-            return const Center(child: Text("Tidak ada data"));
-          }
-        },
+            ),
+          ),
+        ],
       ),
     );
   }

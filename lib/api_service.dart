@@ -2,15 +2,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'surah_model.dart';
 
-class ApiService {
+class HttpService {
+  static const String baseUrl = "https://equran.id/api/v2/surat";
+
   Future<List<Surah>> getSurah() async {
-    final response = await http.get(Uri.parse("https://quran-api.santrikoding.com/api/surah/"));
+    final response = await http.get(Uri.parse(baseUrl));
 
     if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
-      return data.map((json)=>Surah.fromJson(json)).toList();
-    } else {
-      throw Exception('Gagal mengambil data');
+      final Map<String, dynamic> json = jsonDecode(response.body);
+      final surahList = json['data'] as List;
+      return surahList.map((e) => Surah.fromJson(e)).toList();
     }
+    throw Exception("Failed to load surah");
   }
 }
